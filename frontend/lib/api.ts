@@ -35,6 +35,11 @@ export async function getQRCode(sessionId: string) {
   return response.data;
 }
 
+export async function getShareableLink(sessionId: string) {
+  const response = await api.get(`/sessions/${sessionId}/link`);
+  return response.data;
+}
+
 export async function claimSession(sessionId: string, token: string) {
   const response = await api.post(`/agent/sessions/${sessionId}/claim`, {
     token,

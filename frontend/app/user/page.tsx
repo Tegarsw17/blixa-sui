@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, QrCode } from 'lucide-react';
-import { uploadDocument, createSession, getQRCode, setAuthToken, verifyWallet } from '@/lib/api';
-import { QRCodeSVG } from 'qrcode.react';
+import { Upload, FileText, Link as LinkIcon, Copy, Check, ArrowLeft, Sparkles, Send } from 'lucide-react';
+import { uploadDocument, createSession, getShareableLink, setAuthToken } from '@/lib/api';
 
 export default function UserPage() {
   const account = useCurrentAccount();
@@ -14,7 +13,8 @@ export default function UserPage() {
   const [uploading, setUploading] = useState(false);
   const [document, setDocument] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
-  const [qrData, setQrData] = useState<any>(null);
+  const [shareableLink, setShareableLink] = useState<string>('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!account) {
@@ -56,14 +56,32 @@ export default function UserPage() {
       const sess = await createSession(document.id, 10);
       setSession(sess);
       
-      const qr = await getQRCode(sess.id);
-      setQrData(qr);
+      const linkData = await getShareableLink(sess.id);
+      setShareableLink(linkData.link);
       
-      alert('Session berhasil dibuat!');
+      alert('Link berhasil dibuat!');
     } catch (error) {
       console.error('Create session error:', error);
       alert('Gagal membuat session');
     }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareableLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Copy error:', error);
+      alert('Gagal copy link');
+    }
+  };
+
+  const handleSendToWhatsApp = () => {
+    const message = encodeURIComponent(
+      `Halo! Silakan klik link ini untuk print dokumen:\n\n${shareableLink}\n\n⚠️ Link ini hanya bisa digunakan SATU KALI dan akan expire dalam 10 menit.`
+    );
+    window.open(`https://wa.me/?text=${message}`, '_blank');
   };
 
   if (!account) return null;
@@ -124,24 +142,53 @@ export default function UserPage() {
               onClick={handleCreateSession}
               className="mt-4 bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
             >
-              Generate QR Code
+              Generate Link untuk Print
             </button>
           </div>
         )}
 
-        {/* QR Code */}
-        {qrData && (
+        {/* Shareable Link */}
+        {shareableLink && (
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-4 flex items-center">
-              <QrCode className="mr-2" /> QR Code untuk Print
+              <LinkIcon className="mr-2" /> Link untuk Print
             </h2>
             
-            <div className="flex flex-col items-center">
-              <div className="bg-white p-4 rounded">
-                <QRCodeSVG value={qrData.payload} size={256} />
+            <div className="space-y-4">
+              {/* Link Display */}
+              <div className="bg-gray-50 p-4 rounded border">
+                <p className="text-sm font-mono break-all">{shareableLink}</p>
               </div>
-              
-              <div className="mt-4 text-sm text-gray-600 space-y-1">
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  {copied ? (
+                    <>
+                      <Check size={18} />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={18} />
+                      Copy Link
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleSendToWhatsApp}
+                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                >
+                  📱 Kirim via WhatsApp
+                </button>
+              </div>
+
+              {/* Session Info */}
+              <div className="text-sm text-gray-600 space-y-1 pt-4 border-t">
                 <p><strong>Session ID:</strong> {session.id}</p>
                 <p><strong>Status:</strong> {session.status}</p>
                 <p><strong>Expires:</strong> {new Date(session.expiresAt).toLocaleString()}</p>
@@ -160,12 +207,14 @@ export default function UserPage() {
                 )}
               </div>
 
+              {/* Warning Box */}
               <div className="mt-4 p-4 bg-yellow-50 rounded text-sm">
                 <p className="font-bold mb-2">⚠️ Penting:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>QR code ini hanya bisa digunakan SATU KALI</li>
+                  <li>Link ini hanya bisa digunakan SATU KALI</li>
                   <li>File akan otomatis dihapus setelah print</li>
                   <li>Session akan expire dalam 10 menit</li>
+                  <li>Kirim link ini ke printer agent untuk memulai print</li>
                 </ul>
               </div>
             </div>

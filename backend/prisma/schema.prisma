@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id            String   @id @default(uuid())
+  ownerId       String
+  filename      String
+  size          Int
+  hashSha256    String
+  storagePath   String
+  encryptedKey  String
+  createdAt     DateTime @default(now())
+  
+  sessions      PrintSession[]
+  
+  @@map("documents")
+}
+
+model PrintSession {
+  id              String   @id @default(uuid())
+  documentId      String
+  ownerId         String
+  status          String   @default("CREATED")
+  expiresAt       DateTime
+  oneTimeToken    String   @unique
+  suiObjectId     String?
+  suiTxCreate     String?
+  suiTxPrint      String?
+  suiTxDestroy    String?
+  createdAt       DateTime @default(now())
+  printedAt       DateTime?
+  
+  document        Document @relation(fields: [documentId], references: [id])
+  events          PrintEvent[]
+  
+  @@map("print_sessions")
+}
+
+model PrintEvent {
+  id          String   @id @default(uuid())
+  sessionId   String
+  agentId     String?
+  eventType   String
+  result      String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  
+  session     PrintSession @relation(fields: [sessionId], references: [id])
+  
+  @@map("print_events")
+}

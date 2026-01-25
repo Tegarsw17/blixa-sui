@@ -1,0 +1,97 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║              BLIXA MVP - Secure Print Platform               ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+⚠️  IMPORTANT: TypeScript Errors Are NORMAL! ⚠️
+
+If you see 195 TypeScript errors, DON'T PANIC!
+This is expected before installing dependencies.
+
+═══════════════════════════════════════════════════════════════
+
+📖 START HERE:
+
+1. Read: START-HERE.md
+   → First steps & installation
+
+2. Install dependencies:
+   cd backend && npm install
+   cd frontend && npm install
+
+3. Follow: RUN.md
+   → Step-by-step guide to run the app
+
+═══════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION:
+
+├─ START-HERE.md        ⭐ Begin here!
+├─ README.md            Project overview
+├─ RUN.md               Running guide
+├─ INSTALL.md           Installation
+├─ SETUP.md             Detailed setup
+├─ ERRORS-NORMAL.md     Why errors are normal
+└─ QUICK-REFERENCE.md   Quick commands
+
+═══════════════════════════════════════════════════════════════
+
+🚀 QUICK START:
+
+# Install
+cd backend && npm install
+cd ../frontend && npm install
+
+# Setup database
+cd backend
+npm run prisma:generate
+npm run prisma:migrate
+
+# Deploy contract
+cd ../sui-contract
+sui move build
+sui client publish --gas-budget 100000000
+
+# Configure .env files (see SETUP.md)
+
+# Run
+cd ../backend && npm run dev    # Terminal 1
+cd ../frontend && npm run dev   # Terminal 2
+
+# Open http://localhost:3000
+
+═══════════════════════════════════════════════════════════════
+
+✨ FEATURES:
+
+✓ One-time printing (QR can't be reused)
+✓ Zero retention (auto file deletion)
+✓ On-chain receipt (Sui blockchain)
+✓ Encrypted storage (AES-256-GCM)
+✓ Auto-expiry (10 minutes)
+
+═══════════════════════════════════════════════════════════════
+
+🔧 TECH STACK:
+
+Frontend:  Next.js 14 + TypeScript + Sui dApp Kit
+Backend:   Express + Prisma + PostgreSQL
+Contract:  Sui Move
+Security:  AES-256-GCM encryption
+
+═══════════════════════════════════════════════════════════════
+
+❓ NEED HELP?
+
+→ TypeScript errors?     Read ERRORS-NORMAL.md
+→ Installation issues?   Read INSTALL.md
+→ Running problems?      Read RUN.md
+→ Configuration?         Read SETUP.md
+→ Quick commands?        Read QUICK-REFERENCE.md
+
+═══════════════════════════════════════════════════════════════
+
+Remember: Errors before "npm install" are NORMAL! ✅
+
+Happy coding! 🎉

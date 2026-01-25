@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import os from 'os';
 import { logger } from './utils/logger.js';
 import documentRoutes from './routes/documents.js';
 import sessionRoutes from './routes/sessions.js';
@@ -26,5 +27,19 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`BLIXA Backend running on http://172.16.30.46:${PORT}`);
+  const networkInterfaces = os.networkInterfaces();
+  const addresses = [];
+  
+  for (const name of Object.keys(networkInterfaces)) {
+    for (const net of networkInterfaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        addresses.push(net.address);
+      }
+    }
+  }
+  
+  const primaryIP = addresses[0] || 'localhost';
+  logger.info(`BLIXA Backend running on http://${primaryIP}:${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`Port from .env: ${process.env.PORT || 'not set (using default 3001)'}`);
 });

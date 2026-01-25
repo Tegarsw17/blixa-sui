@@ -1,6 +1,6 @@
 # BLIXA MVP - Secure Print Platform
 
-Platform cetak aman dengan one-time QR, zero retention, dan on-chain receipt menggunakan Sui blockchain.
+Platform cetak aman dengan link sharing, zero retention, dan on-chain receipt menggunakan Sui blockchain.
 
 ## ⚠️ PENTING: Baca Ini Dulu!
 
@@ -18,6 +18,18 @@ Error akan hilang setelah install selesai. ✅
 
 ---
 
+## 🔗 Link Sharing Feature
+
+**NEW!** Sistem sekarang menggunakan shareable link untuk mengirim dokumen ke printer, menggantikan QR code.
+
+- User upload dokumen → Generate link → Kirim via WhatsApp/chat
+- Printer agent klik link → Auto-load session → Print
+- Link hanya bisa digunakan SATU KALI dan expire dalam 10 menit
+
+📖 Baca panduan lengkap: [LINK-SHARING-GUIDE.md](LINK-SHARING-GUIDE.md)
+
+---
+
 ## 🎯 Two Implementations Available
 
 ### 1. With Database (Traditional)
@@ -25,6 +37,7 @@ Error akan hilang setelah install selesai. ✅
 - PostgreSQL + Prisma
 - Local file storage
 - Wallet signature auth
+- **Link sharing enabled** ✨
 
 ### 2. No Database (Decentralized) ⭐ RECOMMENDED
 - **Location:** `backend-zklogin/`

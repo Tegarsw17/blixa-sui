@@ -10,7 +10,6 @@ type PrintStep = 'claiming' | 'downloading' | 'printing' | 'deleting' | 'complet
 
 export default function AgentPage() {
   const account = useCurrentAccount();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const autoLoadRef = useRef(false); // Use ref instead of state
   const [qrInput, setQrInput] = useState('');
@@ -20,6 +19,7 @@ export default function AgentPage() {
   const [printStep, setPrintStep] = useState<PrintStep | null>(null);
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // JANGAN redirect ke home jika tidak ada account
@@ -45,14 +45,16 @@ export default function AgentPage() {
 
   const handleAutoLoad = async (sessionId: string, token: string) => {
     setLoading(true);
+    setError(null);
     try {
       const claimed = await claimSession(sessionId, token);
       setSession({ ...claimed, sessionId, token });
-      // SUCCESS - JANGAN tampilkan alert atau redirect
       console.log('Session loaded successfully:', claimed);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Auto-load error:', err);
-      // ERROR - Tampilkan di console saja, JANGAN alert yang bisa close UI
+      // Tampilkan error message yang jelas
+      const errorMessage = err.message || 'Session tidak ditemukan atau sudah dihapus';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -60,17 +62,18 @@ export default function AgentPage() {
 
   const handleScan = async () => {
     setLoading(true);
+    setError(null);
     try {
       const payload = JSON.parse(qrInput);
       const { sessionId, token } = payload;
 
       const claimed = await claimSession(sessionId, token);
       setSession({ ...claimed, sessionId, token });
-      // SUCCESS - JANGAN tampilkan alert
       console.log('Session scanned successfully:', claimed);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Scan error:', err);
-      // ERROR - Tampilkan di console saja
+      const errorMessage = err.message || 'Gagal memuat session. Pastikan payload valid dan session masih aktif.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -213,6 +216,41 @@ export default function AgentPage() {
     <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Print Agent Portal</h1>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-lg p-6 animate-slide-down">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-900 mb-2">Session Tidak Tersedia</h3>
+                <p className="text-red-800 mb-4">{error}</p>
+                <div className="bg-red-100 rounded p-4 text-sm text-red-900 space-y-2">
+                  <p className="font-semibold">Kemungkinan penyebab:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Session sudah di-print dan dihapus secara permanen</li>
+                    <li>Link sudah kadaluarsa atau tidak valid</li>
+                    <li>Session dibatalkan oleh user</li>
+                    <li>Token tidak cocok atau sudah digunakan</li>
+                  </ul>
+                </div>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setQrInput('');
+                  }}
+                  className="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-all font-semibold"
+                >
+                  Tutup & Coba Lagi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Print Progress Modal */}
         {printing && printStep && (

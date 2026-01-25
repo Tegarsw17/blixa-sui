@@ -1,8 +1,9 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs/promises';
+import crypto from 'crypto';
 import { decryptFile } from '../utils/encryption.js';
-import { markPrinted, destroySession } from '../utils/sui.js';
+import { markPrintedAndDestroy } from '../utils/sui.js';
 import { logger } from '../utils/logger.js';
 
 const router = express.Router();
@@ -24,15 +25,25 @@ router.post('/sessions/:id/claim', async (req, res) => {
     });
 
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+      return res.status(404).json({ 
+        error: 'Session tidak ditemukan. Session mungkin sudah dihapus setelah print selesai.' 
+      });
     }
 
     if (session.oneTimeToken !== token) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ 
+        error: 'Token tidak valid. Pastikan link yang digunakan benar.' 
+      });
     }
 
     if (session.status !== 'CREATED') {
-      return res.status(400).json({ error: 'Session already used or expired' });
+      const statusMessage = session.status === 'PRINTED' 
+        ? 'Session sudah di-print dan dihapus secara permanen. Link tidak dapat digunakan lagi.'
+        : session.status === 'EXPIRED'
+        ? 'Session sudah kadaluarsa. Silakan buat session baru.'
+        : 'Session tidak tersedia atau sudah digunakan.';
+      
+      return res.status(400).json({ error: statusMessage });
     }
 
     if (new Date() > session.expiresAt) {
@@ -126,16 +137,18 @@ router.post('/sessions/:id/complete', async (req, res) => {
       return res.status(400).json({ error: 'Session not available' });
     }
 
-    // Mark as printed on blockchain
-    const txPrint = await markPrinted(session.suiObjectId);
+    // Mark as printed and destroy in ONE transaction to avoid version conflict
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const txHash = await markPrintedAndDestroy(session.suiObjectId, tokenHash, 'printed');
 
-    // Update session
+    // Update session with both tx hashes (same tx for both operations)
     await prisma.printSession.update({
       where: { id: sessionId },
       data: {
         status: 'PRINTED',
         printedAt: new Date(),
-        suiTxPrint: txPrint,
+        suiTxPrint: txHash,
+        suiTxDestroy: txHash, // Same transaction
       },
     });
 
@@ -145,7 +158,7 @@ router.post('/sessions/:id/complete', async (req, res) => {
         agentId: req.ip,
         eventType: 'PRINTED',
         result: result || 'success',
-        notes: `Print completed. Tx: ${txPrint}`,
+        notes: `Print completed and session destroyed. Tx: ${txHash}`,
       },
     });
 
@@ -157,21 +170,12 @@ router.post('/sessions/:id/complete', async (req, res) => {
       logger.error({ error }, 'Failed to delete file');
     }
 
-    // Destroy session on blockchain
-    const txDestroy = await destroySession(session.suiObjectId, 'printed');
-
-    await prisma.printSession.update({
-      where: { id: sessionId },
-      data: { suiTxDestroy: txDestroy },
-    });
-
-    logger.info({ sessionId, txPrint, txDestroy }, 'Print completed');
+    logger.info({ sessionId, txHash }, 'Print completed and session destroyed');
 
     res.json({
       success: true,
       status: 'PRINTED',
-      suiTxPrint: txPrint,
-      suiTxDestroy: txDestroy,
+      suiTxHash: txHash,
     });
   } catch (error) {
     logger.error({ error }, 'Failed to complete print');

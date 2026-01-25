@@ -25,6 +25,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  logger.info(`BLIXA Backend running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`BLIXA Backend running on http://172.16.30.46:${PORT}`);
 });

@@ -3,14 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, Link as LinkIcon, Copy, Check, ArrowLeft, Sparkles, Send } from 'lucide-react';
-import { uploadDocument, createSession, getShareableLink, setAuthToken } from '@/lib/api';
+import { Upload, FileText, Link as LinkIcon, Copy, Check, Send, QrCode } from 'lucide-react';
+import QRCode from 'qrcode.react';
+import { uploadDocument, createSession, CreateSessionParams } from '@/lib/api';
+import { saveToUploadHistory } from '@/lib/storage';
+import { usePrintSessionContract } from '@/lib/blockchain';
 
 export default function UserPage() {
   const account = useCurrentAccount();
   const router = useRouter();
+  const contractService = usePrintSessionContract();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
   const [document, setDocument] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
   const [shareableLink, setShareableLink] = useState<string>('');
@@ -21,15 +26,25 @@ export default function UserPage() {
       router.push('/');
       return;
     }
-
-    // Simple auth untuk MVP
-    const token = btoa(`${account.address}:${Date.now()}`);
-    setAuthToken(token);
   }, [account, router]);
 
   const handleFileChange = (e: any) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+
+      // Validate file type
+      if (selectedFile.type !== 'application/pdf') {
+        alert('Hanya file PDF yang diperbolehkan');
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        alert('Ukuran file maksimal 10MB');
+        return;
+      }
+
+      setFile(selectedFile);
     }
   };
 
@@ -38,12 +53,23 @@ export default function UserPage() {
 
     setUploading(true);
     try {
+      // Upload to Walrus with client-side encryption
       const doc = await uploadDocument(file);
       setDocument(doc);
-      alert('Dokumen berhasil diupload!');
+
+      // Save to upload history
+      saveToUploadHistory({
+        blobId: doc.blobId,
+        filename: doc.filename,
+        size: doc.size,
+        hash: doc.hash,
+        createdAt: Date.now(),
+      });
+
+      alert('Dokumen berhasil diupload dan dienkripsi!');
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Upload gagal');
+      alert(`Upload gagal: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setUploading(false);
     }
@@ -52,17 +78,28 @@ export default function UserPage() {
   const handleCreateSession = async () => {
     if (!document) return;
 
+    setCreatingSession(true);
     try {
-      const sess = await createSession(document.id, 10);
+      // Create session on blockchain
+      const params: CreateSessionParams = {
+        blobId: document.blobId,
+        filename: document.filename,
+        fileSize: document.size,
+        documentHash: document.hash,
+        encryptionKey: document.encryptionKey,
+        expiresIn: 10 * 60 * 1000, // 10 minutes
+      };
+
+      const sess = await createSession(params, contractService);
       setSession(sess);
-      
-      const linkData = await getShareableLink(sess.id);
-      setShareableLink(linkData.link);
-      
-      alert('Link berhasil dibuat!');
+      setShareableLink(sess.shareableLink);
+
+      alert('Session berhasil dibuat di blockchain!');
     } catch (error) {
       console.error('Create session error:', error);
-      alert('Gagal membuat session');
+      alert(`Gagal membuat session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setCreatingSession(false);
     }
   };
 
@@ -96,7 +133,7 @@ export default function UserPage() {
           <h2 className="text-xl font-bold mb-4 flex items-center">
             <Upload className="mr-2" /> Upload Dokumen
           </h2>
-          
+
           <input
             type="file"
             accept="application/pdf"
@@ -122,7 +159,7 @@ export default function UserPage() {
             disabled={!file || uploading}
             className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
           >
-            {uploading ? 'Uploading...' : 'Upload PDF'}
+            {uploading ? 'Uploading & Encrypting...' : 'Upload PDF'}
           </button>
         </div>
 
@@ -136,28 +173,50 @@ export default function UserPage() {
               <p><strong>Filename:</strong> {document.filename}</p>
               <p><strong>Size:</strong> {document.size} bytes</p>
               <p><strong>Hash:</strong> {document.hash.substring(0, 16)}...</p>
+              <p><strong>Walrus Blob ID:</strong> {document.blobId.substring(0, 16)}...</p>
             </div>
 
             <button
               onClick={handleCreateSession}
-              className="mt-4 bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+              disabled={creatingSession}
+              className="mt-4 bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
             >
-              Generate Link untuk Print
+              {creatingSession ? 'Creating Session...' : 'Generate Link untuk Print'}
             </button>
           </div>
         )}
 
-        {/* Shareable Link */}
-        {shareableLink && (
+        {/* Shareable Link & QR Code */}
+        {shareableLink && session && (
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <LinkIcon className="mr-2" /> Link untuk Print
             </h2>
-            
-            <div className="space-y-4">
+
+            <div className="space-y-6">
               {/* Link Display */}
-              <div className="bg-gray-50 p-4 rounded border">
-                <p className="text-sm font-mono break-all">{shareableLink}</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Shareable Link
+                </label>
+                <div className="bg-gray-50 p-4 rounded border">
+                  <p className="text-sm font-mono break-all">{shareableLink}</p>
+                </div>
+              </div>
+
+              {/* QR Code */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  QR Code
+                </label>
+                <div className="flex justify-center bg-white p-6 rounded-lg border-2 border-gray-200">
+                  <QRCode
+                    value={shareableLink}
+                    size={256}
+                    level={"H"}
+                    includeMargin={true}
+                  />
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -183,37 +242,26 @@ export default function UserPage() {
                   onClick={handleSendToWhatsApp}
                   className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                 >
-                  📱 Kirim via WhatsApp
+                  <Send size={18} />
+                  Kirim via WhatsApp
                 </button>
               </div>
 
               {/* Session Info */}
               <div className="text-sm text-gray-600 space-y-1 pt-4 border-t">
-                <p><strong>Session ID:</strong> {session.id}</p>
-                <p><strong>Status:</strong> {session.status}</p>
+                <p><strong>Object ID:</strong> {session.objectId.substring(0, 16)}...</p>
+                <p><strong>Session ID:</strong> {session.sessionId}</p>
                 <p><strong>Expires:</strong> {new Date(session.expiresAt).toLocaleString()}</p>
-                {session.suiTxCreate && (
-                  <p>
-                    <strong>Tx Hash:</strong>{' '}
-                    <a
-                      href={`https://suiexplorer.com/txblock/${session.suiTxCreate}?network=testnet`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      {session.suiTxCreate.substring(0, 16)}...
-                    </a>
-                  </p>
-                )}
               </div>
 
               {/* Warning Box */}
-              <div className="mt-4 p-4 bg-yellow-50 rounded text-sm">
+              <div className="p-4 bg-yellow-50 rounded text-sm">
                 <p className="font-bold mb-2">⚠️ Penting:</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>Link ini hanya bisa digunakan SATU KALI</li>
-                  <li>File akan otomatis dihapus setelah print</li>
+                  <li>File dienkripsi dan disimpan di Walrus (decentralized storage)</li>
                   <li>Session akan expire dalam 10 menit</li>
+                  <li>Setelah print, session akan dihapus dari blockchain</li>
                   <li>Kirim link ini ke printer agent untuk memulai print</li>
                 </ul>
               </div>

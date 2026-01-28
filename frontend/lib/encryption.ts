@@ -116,7 +116,7 @@ export async function decryptFile(
   const decrypted = await window.crypto.subtle.decrypt(
     {
       name: ALGORITHM,
-      iv: ivBuffer,
+      iv: ivBuffer as any, // Cast to any to bypass TypeScript strict typing
     },
     key,
     encryptedData
@@ -150,7 +150,7 @@ export async function hashFile(file: File): Promise<string> {
 export function generateToken(): string {
   const array = new Uint8Array(32);
   window.crypto.getRandomValues(array);
-  return bufferToHex(array);
+  return bufferToHex(array.buffer);
 }
 
 /**
@@ -166,9 +166,13 @@ export async function exportKey(key: CryptoKey): Promise<string> {
  */
 export async function importKey(keyData: string): Promise<CryptoKey> {
   const keyBuffer = base64ToBuffer(keyData);
+  // Create a new ArrayBuffer copy to avoid SharedArrayBuffer issues
+  const arrayBuffer = new ArrayBuffer(keyBuffer.byteLength);
+  new Uint8Array(arrayBuffer).set(keyBuffer);
+
   return await window.crypto.subtle.importKey(
     'raw',
-    keyBuffer,
+    arrayBuffer,
     {
       name: ALGORITHM,
       length: KEY_LENGTH,

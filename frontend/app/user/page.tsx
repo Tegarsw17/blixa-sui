@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useRouter } from 'next/navigation';
-import { Upload, FileText, Link as LinkIcon, Copy, Check, Send, QrCode } from 'lucide-react';
-import QRCode from 'qrcode.react';
+import { Upload, FileText, Link as LinkIcon, Copy, Check, Send } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { uploadDocument, createSession, CreateSessionParams } from '@/lib/api';
 import { saveToUploadHistory } from '@/lib/storage';
 import { usePrintSessionContract } from '@/lib/blockchain';
@@ -210,7 +210,7 @@ export default function UserPage() {
                   QR Code
                 </label>
                 <div className="flex justify-center bg-white p-6 rounded-lg border-2 border-gray-200">
-                  <QRCode
+                  <QRCodeSVG
                     value={shareableLink}
                     size={256}
                     level={"H"}

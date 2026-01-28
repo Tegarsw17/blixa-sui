@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Printer, CheckCircle, Link as LinkIcon, Loader2, Download, Trash2, FileCheck } from 'lucide-react';
@@ -10,7 +10,7 @@ import { usePrintSessionContract } from '@/lib/blockchain';
 
 type PrintStep = 'claiming' | 'downloading' | 'printing' | 'marking' | 'destroying' | 'done';
 
-export default function AgentPage() {
+function AgentPageContent() {
   const account = useCurrentAccount();
   const searchParams = useSearchParams();
   const contractService = usePrintSessionContract();
@@ -583,5 +583,21 @@ export default function AgentPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// Wrap with Suspense boundary for useSearchParams
+export default function AgentPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen p-8 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+          <Loader2 className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-spin" />
+          <h2 className="text-xl font-bold mb-2">Loading...</h2>
+        </div>
+      </main>
+    }>
+      <AgentPageContent />
+    </Suspense>
   );
 }

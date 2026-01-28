@@ -314,8 +314,9 @@ export async function downloadDocument(
     const ivBuffer = encryptedData.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
     const actualEncryptedData = encryptedData.slice(SALT_LENGTH + IV_LENGTH);
 
-    const salt = btoa(String.fromCharCode(...saltBuffer));
-    const iv = btoa(String.fromCharCode(...ivBuffer));
+    // Convert Uint8Array to base64 without spread operator
+    const salt = btoa(String.fromCharCode.apply(null, Array.from(saltBuffer)));
+    const iv = btoa(String.fromCharCode.apply(null, Array.from(ivBuffer)));
 
     console.log('🔐 Extracted encryption parameters:', {
       salt: salt.substring(0, 16) + '...',

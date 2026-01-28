@@ -2,11 +2,5 @@
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/.next",
   "framework": "nextjs",
-  "installCommand": "cd frontend && npm install",
-  "env": {
-    "NEXT_PUBLIC_WALRUS_PUBLISHER_URL": "@walrus-publisher-url",
-    "NEXT_PUBLIC_WALRUS_AGGREGATOR_URL": "@walrus-aggregator-url",
-    "NEXT_PUBLIC_SUI_NETWORK": "@sui-network",
-    "NEXT_PUBLIC_PACKAGE_ID": "@package-id"
-  }
+  "installCommand": "cd frontend && npm install"
 }

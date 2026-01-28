@@ -1,7 +1,0 @@
-[package]
-name = "blixa_print"
-version = "0.0.1"
-edition = "2024.beta"
-
-[addresses]
-blixa_print = "0x0"

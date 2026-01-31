@@ -18,9 +18,6 @@ async function uploadToWalrusDirect(
   file: Blob,
   metadata?: { name?: string; description?: string }
 ): Promise<string> {
-  console.log('🌊 Uploading to Walrus...');
-  console.log('🌊 File size:', file.size, 'bytes');
-
   // Walrus testnet publisher endpoints
   const publishers = [
     'https://publisher.walrus-testnet.walrus.space',
@@ -36,35 +33,25 @@ async function uploadToWalrusDirect(
   // const numEpochs = 1; // Minimum is typically 1
 
   for (const publisherUrl of publishers) {
-    console.log(`🌊 Trying publisher: ${publisherUrl}`);
-
     try {
       // Using the official API format: PUT /v1/blobs?epochs=${numEpochs}
       const endpoint = `${publisherUrl}/v1/blobs?epochs=${numEpochs}`;
-      console.log(`🌊 Endpoint: ${endpoint}`);
 
       const response = await fetch(endpoint, {
         method: 'PUT', // Use PUT, not POST
         body: file,     // Send the Blob directly
       });
 
-      console.log(`🌊 Status: ${response.status} ${response.statusText}`);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('🌊 Full response data:', JSON.stringify(data, null, 2));
 
         // Handle both response types: "newlyCreated" and "alreadyCertified"
         const newlyCreated = data.newlyCreated;
         const alreadyCertified = data.alreadyCertified;
 
-        console.log('🔍 newlyCreated:', newlyCreated);
-        console.log('🔍 alreadyCertified:', alreadyCertified);
-
         if (newlyCreated) {
           // Extract the correct blob ID
           const blobObj = newlyCreated.blobObject;
-          console.log('🔍 blobObject:', blobObj, 'Type:', typeof blobObj);
 
           // IMPORTANT: Use blobId field for file content, not id field
           // - id: Sui object ID (not what we need)
@@ -72,32 +59,19 @@ async function uploadToWalrusDirect(
           let blobId: string;
           if (blobObj && typeof blobObj === 'object' && blobObj.blobId) {
             blobId = blobObj.blobId; // Use the blobId field!
-            console.log('✅ Using blobId field:', blobId);
           } else if (typeof blobObj === 'string') {
             blobId = blobObj;
           } else {
             blobId = blobObj.id || JSON.stringify(blobObj);
-            console.log('⚠️ Falling back to id field:', blobId);
           }
-
-          console.log('✅ Newly created blob!');
-          console.log('✅ Walrus Blob ID:', blobId);
-          console.log('✅ This blob can be accessed from ANY device!');
 
           return blobId;
         } else if (alreadyCertified) {
-          console.log('✅ Blob already certified!');
-          console.log('✅ Blob ID:', alreadyCertified.blobId);
           return alreadyCertified.blobId;
-        } else {
-          console.log('⚠️ Unknown response format:', data);
         }
-      } else {
-        const errorText = await response.text();
-        console.log(`❌ Error response: ${errorText}`);
       }
     } catch (error) {
-      console.log(`❌ Publisher error: ${(error as Error).message}`);
+      // Silently try next publisher
     }
   }
 
@@ -112,26 +86,13 @@ export async function uploadToWalrus(
   file: Blob,
   metadata?: { name?: string; description?: string }
 ): Promise<string> {
-  console.log('🌐 Starting Walrus upload...');
-  console.log('🌐 File size:', file.size, 'bytes');
-
   try {
     // Try Walrus upload - returns the blob ID
     const blobId = await uploadToWalrusDirect(file, metadata);
     // Add prefix to identify this as a Walrus blob (for download logic)
     return `walrus_${blobId}`;
   } catch (walrusError) {
-    console.error('❌ Walrus upload failed:', walrusError);
-
     // Walrus failed - use browser storage fallback
-    console.warn('');
-    console.warn('⚠️ ════════════════════════════════════════════════════════════');
-    console.warn('⚠️  WALRUS UPLOAD FAILED - USING BROWSER STORAGE');
-    console.warn('⚠️ ════════════════════════════════════════════════════════════');
-    console.warn('⚠️  LIMITATION: Browser storage only works on SAME browser!');
-    console.warn('⚠️ ════════════════════════════════════════════════════════════');
-    console.warn('');
-
     const browserBlobId = await uploadToBrowserStorage(file, metadata);
     return `browser_${browserBlobId}`; // Add prefix for browser storage
   }
@@ -149,12 +110,9 @@ async function uploadToBrowserStorage(
   const hash = await simpleHash(arrayBuffer);
   const blobId = `browser_${hash}_${Date.now()}`;
 
-  console.log('📤 Storing blob in browser storage:', blobId, { size: arrayBuffer.byteLength, type: file.type });
-
   // Store in IndexedDB (convert blob to array buffer first)
   const db = await getBlobDB();
 
-  console.log('📤 Opening transaction...');
   const tx = db.transaction([STORE_NAME], 'readwrite');
   const store = tx.objectStore(STORE_NAME);
 
@@ -167,35 +125,15 @@ async function uploadToBrowserStorage(
     createdAt: Date.now(),
   };
 
-  console.log('📤 Putting blob into store...');
   const request = store.put(data);
 
   // Wait for transaction to complete
   await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => {
-      console.log('✅ Transaction completed successfully');
-      resolve();
-    };
-    tx.onerror = () => {
-      console.error('❌ Transaction error:', tx.error);
-      reject(tx.error);
-    };
-    request.onerror = () => {
-      console.error('❌ Request error:', request.error);
-      reject(request.error);
-    };
-    request.onsuccess = () => {
-      console.log('✅ Blob put request successful');
-    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    request.onerror = () => reject(request.error);
   });
 
-  // Verify it was stored
-  console.log('📤 Verifying blob storage...');
-  const verify = await getBlob(db, blobId);
-  console.log('✅ Blob storage verified:', verify ? 'Blob stored successfully' : 'Blob NOT found!');
-  console.log('📦 All blobs in DB after store:', await getAllBlobs(db));
-
-  console.log('Stored blob in browser storage:', blobId);
   return blobId;
 }
 
@@ -204,12 +142,9 @@ async function uploadToBrowserStorage(
  * Using the official API format: /v1/blobs/${blobId}
  */
 export async function downloadFromWalrus(blobId: string): Promise<Blob> {
-  console.log('🌐 Starting download for:', blobId);
-
   // Check if it's a Walrus blob
   if (blobId.startsWith('walrus_')) {
     const walrusId = blobId.replace('walrus_', '');
-    console.log('🌊 Downloading from Walrus:', walrusId);
 
     // Walrus testnet aggregators
     const aggregators = [
@@ -218,33 +153,18 @@ export async function downloadFromWalrus(blobId: string): Promise<Blob> {
     ];
 
     for (const aggregatorUrl of aggregators) {
-      console.log(`🌊 Trying aggregator: ${aggregatorUrl}`);
-
       // Using the official API format: /v1/blobs/${blobId}
       const endpoint = `${aggregatorUrl}/v1/blobs/${walrusId}`;
-      console.log(`🌊 Endpoint: ${endpoint}`);
 
       try {
         const response = await fetch(endpoint);
 
         if (response.ok) {
           const blob = await response.blob();
-          console.log(`✅ Downloaded from Walrus (${aggregatorUrl})`);
-          console.log(`📦 Blob size: ${blob.size} bytes`);
-          console.log(`📦 Blob type: ${blob.type}`);
-
-          // Verify the blob size matches expected format
-          // Should be at least: salt (64) + IV (12) + some encrypted data
-          if (blob.size < 76) {
-            console.warn(`⚠️ Blob seems too small: ${blob.size} bytes (expected at least 76 bytes)`);
-          }
-
           return blob;
-        } else {
-          console.log(`❌ Status: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
-        console.log(`❌ Error: ${(error as Error).message}`);
+        // Silently try next aggregator
       }
     }
 
@@ -264,22 +184,14 @@ export async function downloadFromWalrus(blobId: string): Promise<Blob> {
  * Download from browser storage
  */
 async function downloadFromBrowserStorage(blobId: string): Promise<Blob> {
-  console.log('📥 Downloading from browser storage:', blobId);
-
   const db = await getBlobDB();
-
-  // List all blobs in the database for debugging
-  const allBlobs = await getAllBlobs(db);
-  console.log('📦 All blobs in database:', allBlobs.map(b => b.id));
 
   const blobData = await getBlob(db, blobId);
 
   if (!blobData) {
-    console.error('❌ Blob not found in database:', blobId);
     throw new Error(`Blob not found: ${blobId}`);
   }
 
-  console.log('✅ Blob found:', { id: blobData.id, size: blobData.data.byteLength, type: blobData.mimeType });
   return new Blob([blobData.data], { type: blobData.mimeType || 'application/octet-stream' });
 }
 
@@ -300,7 +212,6 @@ export async function checkBlobExists(blobId: string): Promise<boolean> {
     });
     return response.ok;
   } catch (error) {
-    console.error('Walrus check error:', error);
     return false;
   }
 }
@@ -338,7 +249,6 @@ export async function getBlobMetadata(blobId: string): Promise<{
       exists: true,
     };
   } catch (error) {
-    console.error('Walrus metadata error:', error);
     return { size: 0, exists: false };
   }
 }
@@ -353,7 +263,7 @@ export async function deleteFromWalrus(blobId: string): Promise<void> {
     return;
   }
 
-  console.warn(`Cannot delete blob ${blobId}: Walrus storage is immutable`);
+  // Walrus storage is immutable - cannot delete
 }
 
 /**
@@ -371,7 +281,6 @@ export async function uploadToWalrusWithRetry(
       return await uploadToWalrus(file, metadata);
     } catch (error) {
       lastError = error as Error;
-      console.warn(`Upload attempt ${attempt} failed:`, error);
 
       if (attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000;
@@ -390,28 +299,22 @@ export async function downloadFromWalrusWithRetry(
   blobId: string,
   maxRetries = 3
 ): Promise<Blob> {
-  console.log(`🔄 Starting download with retry: blobId=${blobId}, maxRetries=${maxRetries}`);
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`🔄 Download attempt ${attempt}/${maxRetries}...`);
       const result = await downloadFromWalrus(blobId);
-      console.log(`✅ Download successful on attempt ${attempt}`);
       return result;
     } catch (error) {
       lastError = error as Error;
-      console.warn(`❌ Download attempt ${attempt} failed:`, error);
 
       if (attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000;
-        console.log(`⏳ Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
 
-  console.error(`❌ All ${maxRetries} download attempts failed`);
   throw lastError || new Error('All download attempts failed');
 }
 

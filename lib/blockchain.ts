@@ -95,8 +95,6 @@ export function createPrintSessionService(
         transaction: tx,
       });
 
-      console.log('Session created successfully:', result);
-
       // Extract the created object ID from the transaction result
       try {
         // Query the transaction to get the full result with object changes
@@ -117,7 +115,6 @@ export function createPrintSessionService(
           );
 
           if (sessionChange && 'objectId' in sessionChange) {
-            console.log('✅ PrintSession created on blockchain:', sessionChange.objectId);
             return {
               objectId: sessionChange.objectId,
               digest: result.digest,
@@ -125,10 +122,8 @@ export function createPrintSessionService(
             };
           }
         }
-
-        console.warn('⚠️ Could not find PrintSession object in transaction');
       } catch (error) {
-        console.error('Failed to query transaction:', error);
+        // Silently continue
       }
 
       // Fallback: return transaction info if object ID not found
@@ -138,7 +133,6 @@ export function createPrintSessionService(
         txId: result.digest,
       };
     } catch (error) {
-      console.error('Failed to create session:', error);
       throw error;
     }
   };
@@ -147,8 +141,6 @@ export function createPrintSessionService(
    * Mark a session as printed
    */
   const markPrinted = async (objectId: string, tokenHash: string) => {
-    console.log('🔐 Marking session as printed:', { objectId, tokenHash });
-
     const tx = new Transaction();
 
     // Call the mark_printed function
@@ -161,19 +153,15 @@ export function createPrintSessionService(
     });
 
     try {
-      console.log('🔐 Sending mark_printed transaction...');
       const result = await signAndExecuteTransaction({
         transaction: tx,
       });
-
-      console.log('✅ Session marked as printed:', result);
 
       return {
         digest: result.digest,
         txId: result.digest,
       };
     } catch (error) {
-      console.error('❌ Failed to mark session as printed:', error);
       throw error;
     }
   };
@@ -182,8 +170,6 @@ export function createPrintSessionService(
    * Destroy a session (after print or expiry)
    */
   const destroySession = async (objectId: string, reason: string, tokenHash: string) => {
-    console.log('🔐 Destroying session:', { objectId, reason, tokenHash });
-
     const tx = new Transaction();
 
     // Call the destroy_session function with token verification
@@ -197,19 +183,15 @@ export function createPrintSessionService(
     });
 
     try {
-      console.log('🔐 Sending destroy_session transaction...');
       const result = await signAndExecuteTransaction({
         transaction: tx,
       });
-
-      console.log('✅ Session destroyed:', result);
 
       return {
         digest: result.digest,
         txId: result.digest,
       };
     } catch (error) {
-      console.error('❌ Failed to destroy session:', error);
       throw error;
     }
   };
@@ -233,14 +215,11 @@ export function createPrintSessionService(
         transaction: tx,
       });
 
-      console.log('Session marked as expired:', result);
-
       return {
         digest: result.digest,
         txId: result.digest,
       };
     } catch (error) {
-      console.error('Failed to mark session as expired:', error);
       throw error;
     }
   };
@@ -250,8 +229,6 @@ export function createPrintSessionService(
    */
   const getSession = async (objectId: string): Promise<SessionData | null> => {
     try {
-      console.log('🔍 Getting session from blockchain:', objectId);
-
       const object = await suiClient.getObject({
         id: objectId,
         options: {
@@ -261,15 +238,8 @@ export function createPrintSessionService(
         },
       });
 
-      console.log('🔍 Raw blockchain response:', object.data);
-
       if (object.data?.content && typeof object.data.content === 'object') {
         const fields = (object.data.content as any).fields;
-
-        console.log('🔍 Parsed fields:', {
-          document_cid: fields.document_cid,
-          document_cid_type: typeof fields.document_cid,
-        });
 
         const sessionData = {
           objectId: objectId,
@@ -287,14 +257,11 @@ export function createPrintSessionService(
           encryptionKeyHash: fields.encryption_key_hash || '',
         };
 
-        console.log('✅ Session data constructed:', sessionData);
-
         return sessionData;
       }
 
       return null;
     } catch (error) {
-      console.error('Failed to get session:', error);
       throw error;
     }
   };
@@ -304,29 +271,15 @@ export function createPrintSessionService(
    */
   const verifyToken = async (objectId: string, tokenHash: string): Promise<boolean> => {
     try {
-      console.log('🔐 Verifying token for objectId:', objectId);
-      console.log('🔐 Provided tokenHash:', tokenHash);
-
       const session = await getSession(objectId);
       if (!session) {
-        console.log('❌ Session not found');
         return false;
       }
 
-      console.log('🔐 Session data:', {
-        oneTimeTokenHash: session.oneTimeTokenHash,
-        status: session.status,
-      });
-
       const isValid = session.oneTimeTokenHash === tokenHash && session.status === 0;
-      console.log('🔐 Token valid?', isValid, {
-        hashesMatch: session.oneTimeTokenHash === tokenHash,
-        statusIsCreated: session.status === 0,
-      });
 
       return isValid;
     } catch (error) {
-      console.error('Failed to verify token:', error);
       return false;
     }
   };
@@ -343,18 +296,8 @@ export function createPrintSessionService(
       const expiresAt = session.expiresAt;
       const isExpired = currentTime >= expiresAt;
 
-      console.log('⏰ Session expiry check:', {
-        currentTime,
-        expiresAt,
-        currentTimeFormatted: new Date(currentTime).toLocaleString(),
-        expiresAtFormatted: new Date(expiresAt).toLocaleString(),
-        isExpired,
-        timeRemaining: expiresAt - currentTime,
-      });
-
       return isExpired;
     } catch (error) {
-      console.error('Failed to check session expiry:', error);
       return true;
     }
   };

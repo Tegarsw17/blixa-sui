@@ -68,7 +68,6 @@ export default function UserPage() {
 
       alert('Dokumen berhasil diupload dan dienkripsi!');
     } catch (error) {
-      console.error('Upload error:', error);
       alert(`Upload gagal: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setUploading(false);
@@ -96,7 +95,6 @@ export default function UserPage() {
 
       alert('Session berhasil dibuat di blockchain!');
     } catch (error) {
-      console.error('Create session error:', error);
       alert(`Gagal membuat session: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setCreatingSession(false);
@@ -109,7 +107,6 @@ export default function UserPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Copy error:', error);
       alert('Gagal copy link');
     }
   };

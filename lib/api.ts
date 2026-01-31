@@ -93,13 +93,6 @@ export async function uploadDocument(file: File): Promise<UploadResult> {
     combined.set(ivBuffer, saltBuffer.length);
     combined.set(encryptedBuffer, saltBuffer.length + ivBuffer.length);
 
-    console.log('🔐 Encrypted data structure:', {
-      saltLength: saltBuffer.length,
-      ivLength: ivBuffer.length,
-      encryptedLength: encryptedBuffer.length,
-      totalLength: combined.length,
-    });
-
     // Step 4: Upload combined data to Walrus
     const encryptedBlob = new Blob([combined], { type: 'application/octet-stream' });
     const blobId = await uploadToWalrusWithRetry(encryptedBlob, {
@@ -113,13 +106,6 @@ export async function uploadDocument(file: File): Promise<UploadResult> {
     // Step 6: Export encryption key for QR code storage
     const exportedKey = await exportKey(encryptionKey);
 
-    console.log('Document uploaded successfully:', {
-      blobId,
-      filename: file.name,
-      size: file.size,
-      hash: fileHash,
-    });
-
     return {
       blobId,
       filename: file.name,
@@ -128,7 +114,6 @@ export async function uploadDocument(file: File): Promise<UploadResult> {
       encryptionKey: exportedKey,
     };
   } catch (error) {
-    console.error('Upload failed:', error);
     throw new Error(`Failed to upload document: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -170,8 +155,6 @@ export async function createSession(
       expiresAt,
     });
 
-    console.log('Session created on blockchain:', result);
-
     // Step 7: Save to local storage
     const sessionMetadata = {
       objectId: result.objectId,
@@ -198,7 +181,6 @@ export async function createSession(
       shareableLink,
     };
   } catch (error) {
-    console.error('Create session failed:', error);
     throw new Error(`Failed to create session: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -216,7 +198,6 @@ export async function getSession(objectId: string, contractService: any): Promis
 
     return session;
   } catch (error) {
-    console.error('Get session failed:', error);
     throw error;
   }
 }
@@ -230,8 +211,6 @@ export async function claimSession(
   contractService: any
 ): Promise<ClaimSessionResult> {
   try {
-    console.log('🔐 Claiming session:', { objectId, token });
-
     // Step 1: Get session from blockchain
     const sessionData = await contractService.getSession(objectId);
 
@@ -239,11 +218,8 @@ export async function claimSession(
       throw new Error('Session not found');
     }
 
-    console.log('🔐 Session retrieved from blockchain:', sessionData);
-
     // Step 2: Verify token
     const tokenHash = await hashToken(token);
-    console.log('🔐 Computed token hash from provided token:', tokenHash);
 
     const isValid = await contractService.verifyToken(objectId, tokenHash);
 
@@ -257,15 +233,7 @@ export async function claimSession(
       throw new Error('Session has expired');
     }
 
-    console.log('✅ Session claimed successfully:', {
-      filename: sessionData.filename,
-      size: sessionData.fileSize,
-      documentCid: sessionData.documentCid,
-      documentCidType: typeof sessionData.documentCid,
-    });
-
     const documentBlobId = sessionData.documentCid;
-    console.log('📦 Returning documentBlobId:', documentBlobId, 'Type:', typeof documentBlobId);
 
     return {
       success: true,
@@ -277,7 +245,6 @@ export async function claimSession(
       sessionData,
     };
   } catch (error) {
-    console.error('❌ Claim session failed:', error);
     throw new Error(`Failed to claim session: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -290,16 +257,12 @@ export async function downloadDocument(
   encryptionKey: string
 ): Promise<Blob> {
   try {
-    console.log('🔐 Starting document download and decryption...');
-
     // Step 1: Download encrypted file from Walrus
     const encryptedBlob = await downloadFromWalrusWithRetry(blobId);
 
     // Step 2: Convert to ArrayBuffer
     const encryptedArrayBuffer = await blobToArrayBuffer(encryptedBlob);
     const encryptedData = new Uint8Array(encryptedArrayBuffer);
-
-    console.log('📦 Downloaded encrypted data:', { size: encryptedData.length });
 
     // Step 3: Extract salt, IV, and encrypted data
     // Format: [salt (64 bytes)] [IV (12 bytes)] [encrypted data]
@@ -318,17 +281,10 @@ export async function downloadDocument(
     const salt = btoa(String.fromCharCode.apply(null, Array.from(saltBuffer)));
     const iv = btoa(String.fromCharCode.apply(null, Array.from(ivBuffer)));
 
-    console.log('🔐 Extracted encryption parameters:', {
-      salt: salt.substring(0, 16) + '...',
-      iv: iv.substring(0, 16) + '...',
-      encryptedDataLength: actualEncryptedData.length,
-    });
-
     // Step 4: Import encryption key
     const key = await importKey(encryptionKey);
 
     // Step 5: Decrypt the file
-    console.log('🔐 Decrypting...');
     const decryptedArrayBuffer = await decryptFile(
       actualEncryptedData.buffer,
       key,
@@ -336,16 +292,11 @@ export async function downloadDocument(
       iv
     );
 
-    console.log('✅ Decryption successful:', { size: decryptedArrayBuffer.byteLength });
-
     // Step 6: Convert back to Blob
     const decryptedBlob = arrayBufferToBlob(decryptedArrayBuffer, 'application/pdf');
 
-    console.log('Document downloaded and decrypted successfully');
-
     return decryptedBlob;
   } catch (error) {
-    console.error('❌ Download document failed:', error);
     throw new Error(`Failed to download document: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -370,23 +321,15 @@ export async function completeSession(
   contractService: any
 ): Promise<void> {
   try {
-    console.log('🔐 completeSession called with:', { objectId, token: token.substring(0, 16) + '...', result });
-
     // Step 1: Hash the token
     const tokenHash = await hashToken(token);
-    console.log('🔐 Token hashed for blockchain:', tokenHash);
 
     // Step 2: Mark session as printed
-    console.log('🔐 Calling markPrinted...');
     await contractService.markPrinted(objectId, tokenHash);
 
     // Step 3: Destroy the session (now requires token hash too)
-    console.log('🔐 Calling destroySession with token...');
     await contractService.destroySession(objectId, result, tokenHash);
-
-    console.log('✅ Session completed successfully');
   } catch (error) {
-    console.error('❌ Complete session failed:', error);
     throw new Error(`Failed to complete session: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -424,5 +367,4 @@ export async function verifyWallet(address: string, signature: string, message: 
 export function setAuthToken(token: string): void {
   // Auth is no longer needed with frontend-only architecture
   // This function is kept for backward compatibility
-  console.warn('setAuthToken is deprecated and no longer needed');
 }

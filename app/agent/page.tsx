@@ -29,22 +29,16 @@ function AgentPageContent() {
   useEffect(() => {
     // Allow access without wallet for agent convenience
     if (!account) {
-      console.warn('No wallet connected, but continuing for agent access');
+      // Continue without wallet
     }
 
     // Auto-load session from URL parameters - only once
     if (!autoLoadRef.current) {
-      console.log('🔄 Auto-load: checking URL for session data...');
       const urlSession = parseSessionFromUrl();
-
-      console.log('🔄 Auto-load: urlSession result:', urlSession);
 
       if (urlSession) {
         autoLoadRef.current = true;
-        console.log('🔄 Auto-load: triggering handleAutoLoad');
         handleAutoLoad(urlSession);
-      } else {
-        console.log('🔄 Auto-load: no session in URL, waiting for manual input');
       }
     }
   }, [account]);
@@ -54,14 +48,11 @@ function AgentPageContent() {
     setError(null);
     try {
       // Claim session from blockchain
-      console.log('🔐 handleAutoLoad: urlSession.oneTimeToken =', urlSession.oneTimeToken);
       const claimed = await claimSession(urlSession.objectId, urlSession.oneTimeToken, contractService);
       setSession(claimed);
       setEncryptionKey(urlSession.encryptionKey);
       setToken(urlSession.oneTimeToken); // Store the original token
-      console.log('Session loaded successfully:', claimed);
     } catch (err: any) {
-      console.error('Auto-load error:', err);
       const errorMessage = err.message || 'Session tidak ditemukan atau sudah dihapus';
       setError(errorMessage);
     } finally {
@@ -90,16 +81,12 @@ function AgentPageContent() {
         throw new Error('Missing required fields: objectId and token');
       }
 
-      console.log('🔐 handleScan: token =', token);
-
       // Claim session
       const claimed = await claimSession(objectId, token, contractService);
       setSession(claimed);
       setEncryptionKey(key);
       setToken(token); // Store the original token
-      console.log('Session scanned successfully:', claimed);
     } catch (err: any) {
-      console.error('Scan error:', err);
       const errorMessage = err.message || 'Gagal memuat session. Pastikan payload valid dan session masih aktif.';
       setError(errorMessage);
     } finally {
@@ -157,17 +144,13 @@ function AgentPageContent() {
       // Step 4: Mark as printed on blockchain (now works with new contract!)
       setPrintStep('marking');
       setProgress(85);
-      console.log('🔐 Calling completeSession with token:', token);
       await completeSession(session.sessionData.objectId, token, 'printed', contractService);
       await sleep(800);
 
       // Step 5: Done
       setPrintStep('done');
       setProgress(100);
-
-      console.log('Print completed successfully');
     } catch (err) {
-      console.error('Print error:', err);
       setPrintStep(null);
       setPrinting(false);
       setError(`Print failed: ${err instanceof Error ? err.message : 'Unknown error'}`);

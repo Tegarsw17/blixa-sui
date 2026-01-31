@@ -50,7 +50,7 @@ export function saveToUploadHistory(document: DocumentMetadata): void {
 
     sessionStorage.setItem(STORAGE_KEYS.UPLOAD_HISTORY, JSON.stringify(trimmedHistory));
   } catch (error) {
-    console.error('Failed to save to upload history:', error);
+    // Silently fail
   }
 }
 
@@ -64,7 +64,6 @@ export function getUploadHistory(): DocumentMetadata[] {
     const data = sessionStorage.getItem(STORAGE_KEYS.UPLOAD_HISTORY);
     return data ? JSON.parse(data) : [];
   } catch (error) {
-    console.error('Failed to get upload history:', error);
     return [];
   }
 }
@@ -78,7 +77,7 @@ export function clearUploadHistory(): void {
   try {
     sessionStorage.removeItem(STORAGE_KEYS.UPLOAD_HISTORY);
   } catch (error) {
-    console.error('Failed to clear upload history:', error);
+    // Silently fail
   }
 }
 
@@ -93,7 +92,7 @@ export function removeFromHistory(blobId: string): void {
     const filtered = history.filter(doc => doc.blobId !== blobId);
     sessionStorage.setItem(STORAGE_KEYS.UPLOAD_HISTORY, JSON.stringify(filtered));
   } catch (error) {
-    console.error('Failed to remove from history:', error);
+    // Silently fail
   }
 }
 
@@ -106,7 +105,7 @@ export function saveCurrentSession(session: SessionMetadata): void {
   try {
     sessionStorage.setItem(STORAGE_KEYS.CURRENT_SESSION, JSON.stringify(session));
   } catch (error) {
-    console.error('Failed to save current session:', error);
+    // Silently fail
   }
 }
 
@@ -120,7 +119,6 @@ export function getCurrentSession(): SessionMetadata | null {
     const data = sessionStorage.getItem(STORAGE_KEYS.CURRENT_SESSION);
     return data ? JSON.parse(data) : null;
   } catch (error) {
-    console.error('Failed to get current session:', error);
     return null;
   }
 }
@@ -134,7 +132,7 @@ export function clearCurrentSession(): void {
   try {
     sessionStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION);
   } catch (error) {
-    console.error('Failed to clear current session:', error);
+    // Silently fail
   }
 }
 
@@ -190,8 +188,6 @@ export function generateShareableLink(session: SessionMetadata): string {
 export function parseSessionFromUrl(): SessionMetadata | null {
   if (typeof window === 'undefined') return null;
 
-  console.log('🔍 Parsing URL:', window.location.search);
-
   const params = new URLSearchParams(window.location.search);
 
   const objectId = params.get('objectId');
@@ -200,10 +196,7 @@ export function parseSessionFromUrl(): SessionMetadata | null {
   const token = params.get('token');
   const filename = params.get('filename');
 
-  console.log('🔍 URL params:', { objectId, blobId, encryptionKey, token, filename });
-
   if (!objectId || !blobId || !encryptionKey || !token || !filename) {
-    console.log('❌ URL parsing failed: missing required params');
     return null;
   }
 
@@ -220,7 +213,6 @@ export function parseSessionFromUrl(): SessionMetadata | null {
     sessionId: '',
   };
 
-  console.log('✅ URL parsed successfully:', session);
   return session;
 }
 
@@ -240,7 +232,7 @@ export function cleanupExpiredSessions(): void {
 
     sessionStorage.setItem(STORAGE_KEYS.UPLOAD_HISTORY, JSON.stringify(validHistory));
   } catch (error) {
-    console.error('Failed to cleanup expired sessions:', error);
+    // Silently fail
   }
 }
 
@@ -271,6 +263,6 @@ export function clearAllStorage(): void {
     sessionStorage.removeItem(STORAGE_KEYS.UPLOAD_HISTORY);
     sessionStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION);
   } catch (error) {
-    console.error('Failed to clear all storage:', error);
+    // Silently fail
   }
 }
